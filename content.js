@@ -275,100 +275,207 @@ function getEmailContent(composeWindow) {
   // Debug: Log all potential email content containers
   console.log("All potential email content containers:");
   
-  // Look for the email thread using multiple selectors
+  // First, try to capture the visible Subject line which often has important context
+  let subjectLine = "";
+  const subjectElements = document.querySelectorAll('.hP, [data-thread-title]');
+  if (subjectElements.length > 0) {
+    subjectLine = subjectElements[0].textContent;
+    console.log("Found subject line:", subjectLine);
+  }
+  
+  // Try to find sender information
+  let senderInfo = "";
+  const senderElements = document.querySelectorAll('.gD, .go');
+  if (senderElements.length > 0) {
+    senderInfo = senderElements[0].textContent;
+    console.log("Found sender info:", senderInfo);
+  }
+  
+  // Look for the email thread using multiple selectors, with specific additions for Japanese content
   const threadSelectors = [
-    '.gE.iv.gt',  // Standard thread container
-    '.h7',        // Another possible thread container
-    '.gs',        // Thread in conversation view
-    '.adn',       // Inside thread content
-    '.a3s.aiL',   // Email content directly
-    '[data-message-id]' // Messages with IDs
+    // Standard content selectors
+    '.adn .a3s',           // Standard email content
+    '.h7 .ii',             // Another content container
+    '.ii[dir="ltr"]',      // LTR direction content (often used for non-CJK)
+    '.ii[dir="rtl"]',      // RTL direction content
+    '.gs .ii',             // Thread content
+    '.g2',                 // Sometimes contains email body
+    
+    // Specific to Asian languages (CJK)
+    '.ii[lang="ja"]',      // Japanese specific content
+    '.ii[lang="zh"]',      // Chinese specific content
+    '[data-thread-perm-id]', // Thread permanent ID container (often contains content)
+    
+    // Very specific selectors for when standard ones fail
+    '.iA .g6',             // Alternative content containers
+    '.nH[role="main"] .ii', // Main content area's message
+    '.a3s.aiL'             // Another common content class
   ];
   
-  // Try all thread selectors
-  let emailContent = "";
-  let detectedLanguage = "en";
+  // Additional selectors for direct/manual text content discovery
+  const directTextSelectors = [
+    '.Subject',            // Subject text that might contain context
+    '.ha h2',              // Subject headers
+    '.nH .ii > div'        // Direct children of .ii (often contains the text)
+  ];
   
-  for (const selector of threadSelectors) {
+  // Combine all selectors for thorough search
+  const allSelectors = [...threadSelectors, ...directTextSelectors];
+  
+  // Try all selectors to find content
+  let emailContent = "";
+  let contentFound = false;
+  
+  for (const selector of allSelectors) {
     const elements = document.querySelectorAll(selector);
     if (elements.length > 0) {
       console.log(`Found ${elements.length} elements with selector ${selector}`);
       
-      // Get the last element (most recent email)
-      const latestElement = elements[elements.length - 1];
-      console.log("Latest element content:", latestElement.innerText.substring(0, 100) + "...");
-      
-      if (latestElement.innerText && latestElement.innerText.length > 10) {
-        emailContent = latestElement.innerText;
-        break;
+      // Try each element found
+      for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        const text = element.innerText;
+        
+        if (text && text.length > 30) { // Require at least 30 chars to avoid small fragments
+          console.log(`Element ${i} with selector ${selector} contains: ${text.substring(0, 100)}...`);
+          
+          // If we find a good amount of text, use it
+          if (text.length > emailContent.length) {
+            emailContent = text;
+            contentFound = true;
+          }
+        }
       }
     }
   }
   
-  // If still no content, try looking at any visible email content on the page
-  if (!emailContent) {
+  // If no content found yet, try a more aggressive approach - look for any visible text blocks
+  if (!contentFound) {
     console.log("No content found with standard selectors, trying generic approach");
     
-    // Try to find the email body by looking at the visible text in the main content area
-    const mainContent = document.querySelector('.AO');
-    if (mainContent) {
-      const visibleTextElements = Array.from(mainContent.querySelectorAll('*')).filter(el => {
-        const style = window.getComputedStyle(el);
-        return style.display !== 'none' && 
-               style.visibility !== 'hidden' && 
-               el.innerText.length > 30;
-      });
+    // Find all elements that might contain visible text of reasonable length
+    const allTextElements = Array.from(document.querySelectorAll('*')).filter(el => {
+      if (!el.innerText || el.innerText.length < 50) return false;
       
-      console.log(`Found ${visibleTextElements.length} visible text elements`);
-      
-      // Get the longest text content as it's likely the email body
-      if (visibleTextElements.length > 0) {
-        const longestTextElement = visibleTextElements.reduce((longest, current) => 
-          current.innerText.length > longest.innerText.length ? current : longest
-        );
-        
-        emailContent = longestTextElement.innerText;
-        console.log("Using longest visible text element:", emailContent.substring(0, 100) + "...");
-      }
-    }
-  }
-  
-  // Debugging output
-  if (!emailContent || emailContent.length < 10) {
-    // Dump all visible text elements to console for debugging
-    console.log("Email content extraction failed, dumping page text:");
-    const allTextElements = Array.from(document.querySelectorAll('*')).filter(el => 
-      el.innerText && el.innerText.trim().length > 20 && 
-      window.getComputedStyle(el).display !== 'none'
-    );
-    
-    allTextElements.forEach((el, i) => {
-      console.log(`Text element ${i}:`, el.innerText.substring(0, 50) + "...");
+      const style = window.getComputedStyle(el);
+      return style.display !== 'none' && 
+             style.visibility !== 'hidden' && 
+             style.opacity !== '0';
     });
     
-    // Create a fallback content
-    console.log("Using fallback content");
-    emailContent = "这是一封测试邮件，请生成一个简短的回复。如果你看到这个内容，说明插件无法正确提取邮件内容。";
-    detectedLanguage = "zh";
-  } else {
-    console.log("Email content extracted successfully, length:", emailContent.length);
+    console.log(`Found ${allTextElements.length} possible text elements`);
     
-    // Try to detect language
-    if (/[\u4e00-\u9fa5]/.test(emailContent)) {
-      detectedLanguage = "zh"; // Chinese characters present
-    } else if (/[áéíóúüñ¿¡]/i.test(emailContent)) {
-      detectedLanguage = "es"; // Spanish characters present
-    } else if (/[àâçéèêëîïôùûüÿ]/i.test(emailContent)) {
-      detectedLanguage = "fr"; // French characters present
-    } else if (/[äöüß]/i.test(emailContent)) {
-      detectedLanguage = "de"; // German characters present
-    } else if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/.test(emailContent)) {
-      detectedLanguage = "ja"; // Japanese characters present
+    if (allTextElements.length > 0) {
+      // Sort by text length (descending) to get the most content-rich element
+      allTextElements.sort((a, b) => b.innerText.length - a.innerText.length);
+      
+      // Get the longest text as it's likely the email body
+      emailContent = allTextElements[0].innerText;
+      console.log("Using longest text element:", emailContent.substring(0, 100) + "...");
+      contentFound = true;
     }
   }
   
+  // Look specifically for the quoted reply/forward content
+  if (!contentFound) {
+    const quotedContent = document.querySelector('.gmail_quote');
+    if (quotedContent) {
+      emailContent = quotedContent.innerText;
+      console.log("Using quoted content:", emailContent.substring(0, 100) + "...");
+      contentFound = true;
+    }
+  }
+  
+  // Check if there's content in the current reply compose box
+  if (!contentFound) {
+    const replyContent = composeWindow.querySelector('[role="textbox"]');
+    if (replyContent && replyContent.innerText.length > 20) {
+      // If there's already some text, it might be quoted content
+      emailContent = replyContent.innerText;
+      console.log("Using existing compose box content:", emailContent.substring(0, 100) + "...");
+      contentFound = true;
+    }
+  }
+  
+  // If found subject but no content, at least include the subject
+  if (!contentFound && subjectLine) {
+    emailContent = "Subject: " + subjectLine;
+    if (senderInfo) {
+      emailContent += "\nFrom: " + senderInfo;
+    }
+    console.log("Using only subject and sender info as content");
+    contentFound = true;
+  }
+  
+  // Add "manual entry" text to indicate we're in last-resort mode
+  if (!contentFound || emailContent.length < 20) {
+    // Create a fallback that explicitly mentions the lack of content
+    console.log("Using fallback content - no email content could be extracted");
+    
+    // Create a more helpful fallback for Japanese context
+    const japaneseContext = isJapaneseContext();
+    
+    if (japaneseContext) {
+      emailContent = "日本語のメールに返信しています。内容が自動的に検出できませんでした。礼儀正しく簡潔な返信を作成してください。" +
+        (subjectLine ? "\n\n件名: " + subjectLine : "") +
+        (senderInfo ? "\n送信者: " + senderInfo : "");
+        
+      return { content: emailContent, language: "ja" };
+    } else {
+      emailContent = "Replying to an email whose content couldn't be automatically detected. " +
+        "Please create a polite and brief reply." +
+        (subjectLine ? "\n\nSubject: " + subjectLine : "") +
+        (senderInfo ? "\nSender: " + senderInfo : "");
+    }
+  }
+  
+  // Try to detect language from the content we found
+  let detectedLanguage = detectLanguage(emailContent);
   console.log("Detected language:", detectedLanguage);
+  
   return { content: emailContent, language: detectedLanguage };
+}
+
+// Helper function to check if we're in a Japanese context
+function isJapaneseContext() {
+  // Check for Japanese characters in the page
+  const pageText = document.body.innerText;
+  const hasJapaneseChars = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/.test(pageText);
+  
+  // Check for Japanese in URL or subject
+  const url = window.location.href;
+  const subjects = Array.from(document.querySelectorAll('.hP, [data-thread-title]'))
+    .map(el => el.textContent);
+  
+  const hasJapaneseInMetadata = subjects.some(subject => 
+    /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/.test(subject)
+  );
+  
+  return hasJapaneseChars || hasJapaneseInMetadata;
+}
+
+// Helper function to detect language
+function detectLanguage(text) {
+  // Simple language detection logic
+  if (/[\u3040-\u309f\u30a0-\u30ff]/.test(text)) {
+    console.log("Detected Japanese characters");
+    return "ja"; // Japanese characters present
+  } else if (/[\u4e00-\u9fff]/.test(text)) {
+    console.log("Detected Chinese characters");
+    return "zh"; // Chinese characters present
+  } else if (/[áéíóúüñ¿¡]/.test(text)) {
+    console.log("Detected Spanish characters");
+    return "es"; // Spanish characters present
+  } else if (/[àâçéèêëîïôùûüÿ]/.test(text)) {
+    console.log("Detected French characters");
+    return "fr"; // French characters present
+  } else if (/[äöüß]/.test(text)) {
+    console.log("Detected German characters");
+    return "de"; // German characters present
+  }
+  
+  // Default to English
+  return "en";
 }
 
 // Function to generate a reply using AI
@@ -414,6 +521,10 @@ function generateReply(composeWindow) {
     console.log("No email content found - 未找到邮件内容");
     showErrorMessage('未能找到需要回复的邮件内容，但我们将尝试生成一个通用回复。', '无邮件内容');
   }
+  
+  // Capture any existing text in the compose box
+  const existingText = messageBody.innerHTML;
+  console.log("Existing text in compose box:", existingText.substring(0, 100) + "...");
   
   // Show loading indicator
   const statusMessage = document.createElement('div');
@@ -485,6 +596,11 @@ function generateReply(composeWindow) {
       console.error("AI Reply Error:", errorMsg, errorDetails);
       
       showErrorMessage(errorMsg, "AI回复生成失败", errorDetails);
+      
+      // Restore any existing text that was in the compose box
+      if (existingText) {
+        messageBody.innerHTML = existingText;
+      }
     }
   });
 }
