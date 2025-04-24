@@ -63,5 +63,5 @@ To modify the extension:
 - Email content is sent to Google Gemini for processing, privacy policy applies
 
 ## License
-
+by wangsh
 MIT License
