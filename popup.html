@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gmail AI Responder</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Gmail AI Responder</h1>
+    <div class="settings">
+      <h2>Settings</h2>
+      <div class="setting-item">
+        <label for="api-key">Google Gemini API Key:</label>
+        <input type="password" id="api-key" placeholder="Enter your Gemini API key">
+      </div>
+      <div class="setting-item">
+        <label for="tone">Response Tone:</label>
+        <select id="tone">
+          <option value="professional">Professional</option>
+          <option value="friendly">Friendly</option>
+          <option value="concise">Concise</option>
+          <option value="detailed">Detailed</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label for="language">Preferred Language:</label>
+        <select id="language">
+          <option value="detect">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="zh">Chinese</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="ja">Japanese</option>
+        </select>
+      </div>
+      <button id="save-settings">Save Settings</button>
+    </div>
+    <div class="status">
+      <p id="status-message">Extension is ready</p>
+    </div>
+    <div class="footer">
+      <p>Click the AI button in Gmail compose window to generate a reply</p>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
