@@ -27,7 +27,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         );
         
         console.log("Gemini API response received successfully");
-        sendResponse({ success: true, reply: response });
+        
+        // Format the response with HTML for proper line breaks
+        const formattedResponse = formatEmailResponseHTML(response, request.originalLanguage);
+        
+        sendResponse({ success: true, reply: formattedResponse });
       } catch (error) {
         console.error("Error generating reply:", error);
         
@@ -40,10 +44,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         console.log("Using fallback reply:", fallbackReply);
         
+        // Format the fallback response with HTML
+        const formattedFallback = formatEmailResponseHTML(fallbackReply, request.originalLanguage);
+        
         // Return fallback reply instead of error message for better user experience
         sendResponse({ 
           success: true, 
-          reply: fallbackReply
+          reply: formattedFallback
         });
       }
     });
@@ -60,6 +67,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// Format the email response with HTML paragraph tags for proper line breaks
+function formatEmailResponseHTML(text, language) {
+  // If already formatted with HTML, don't modify
+  if (text.includes("<div>") || text.includes("<p>") || text.includes("<br>")) {
+    return text;
+  }
+  
+  // Remove any excess line breaks
+  text = text.replace(/\n{3,}/g, "\n\n");
+  
+  // Split into paragraphs
+  const paragraphs = text.split(/\n{1,2}/);
+  
+  // Process each paragraph and convert to HTML
+  const htmlParagraphs = paragraphs.map(para => {
+    if (!para.trim()) return ""; // Skip empty lines
+    return `<div style="margin-bottom: 12px;">${para}</div>`;
+  });
+  
+  // Join all paragraphs
+  return htmlParagraphs.join("");
+}
+
 // Generate a fallback reply when API fails
 function generateFallbackReply(emailContent, tone, language) {
   console.log("Generating fallback reply in language:", language);
@@ -71,28 +101,96 @@ function generateFallbackReply(emailContent, tone, language) {
     senderName = nameMatch[0];
   }
   
-  // Extract greeting-worthy content
-  let greeting = senderName ? `${senderName}様` : "";
-  
-  // Simple templates for different languages
+  // Simple templates for different languages - now using HTML format
   const templates = {
     'zh': {
-      'professional': `${greeting ? greeting + "，\n\n" : ""}感谢您的邮件。我已仔细阅读了您的信息，并对您提出的内容非常感兴趣。我们可以安排一次详细的讨论，以便更好地了解您的需求和探讨可能的合作机会。请告诉我您方便的时间，我会尽量配合您的日程安排。\n\n期待您的回复。\n\n此致,`,
-      'friendly': `${greeting ? greeting + "，\n\n" : ""}谢谢你的邮件！看到你的来信我真的很高兴。关于你提到的事情，我觉得非常有意思，很愿意进一步交流。如果你有空，我们可以约个时间详细聊聊，或者如果你愿意的话，也可以直接通过电话沟通。\n\n期待很快听到你的回音！\n\n祝好,`,
-      'concise': `${greeting ? greeting + "，\n\n" : ""}已收到您的邮件，对您提出的事项很感兴趣。建议我们安排一次会面或通话进一步讨论。请告知您的可用时间。\n\n谢谢,`,
-      'detailed': `${greeting ? greeting + "，\n\n" : ""}非常感谢您发送这封邮件。我已经仔细阅读了您提供的所有信息，并且对您提出的内容非常感兴趣。基于您所述的情况，我认为我们有很好的合作空间。\n\n我想提议安排一次详细的会议，以便我们能够更深入地讨论这个项目的各个方面。在会议中，我们可以探讨您的具体需求、预期目标、时间表以及其他相关细节。\n\n请告诉我您方便的日期和时间，我会尽量调整我的日程来配合您。如果您有任何其他问题或需要更多信息，请随时告知我。\n\n期待与您进一步合作。\n\n此致敬礼,`
+      'professional': `<div style="margin-bottom: 12px;">${senderName ? senderName + "，" : ""}</div>
+<div style="margin-bottom: 12px;">感谢您的邮件。</div>
+<div style="margin-bottom: 12px;">我已仔细阅读了您的信息，并对您提出的内容非常感兴趣。</div>
+<div style="margin-bottom: 12px;">我们可以安排一次详细的讨论，以便更好地了解您的需求和探讨可能的合作机会。</div>
+<div style="margin-bottom: 12px;">请告诉我您方便的时间，我会尽量配合您的日程安排。</div>
+<div style="margin-bottom: 12px;">期待您的回复。</div>
+<div style="margin-bottom: 12px;">此致,</div>`,
+      'friendly': `<div style="margin-bottom: 12px;">${senderName ? senderName + "，" : ""}</div>
+<div style="margin-bottom: 12px;">谢谢你的邮件！</div>
+<div style="margin-bottom: 12px;">看到你的来信我真的很高兴。关于你提到的事情，我觉得非常有意思，很愿意进一步交流。</div>
+<div style="margin-bottom: 12px;">如果你有空，我们可以约个时间详细聊聊，或者如果你愿意的话，也可以直接通过电话沟通。</div>
+<div style="margin-bottom: 12px;">期待很快听到你的回音！</div>
+<div style="margin-bottom: 12px;">祝好,</div>`,
+      'concise': `<div style="margin-bottom: 12px;">${senderName ? senderName + "，" : ""}</div>
+<div style="margin-bottom: 12px;">已收到您的邮件，对您提出的事项很感兴趣。</div>
+<div style="margin-bottom: 12px;">建议我们安排一次会面或通话进一步讨论。</div>
+<div style="margin-bottom: 12px;">请告知您的可用时间。</div>
+<div style="margin-bottom: 12px;">谢谢,</div>`,
+      'detailed': `<div style="margin-bottom: 12px;">${senderName ? senderName + "，" : ""}</div>
+<div style="margin-bottom: 12px;">非常感谢您发送这封邮件。</div>
+<div style="margin-bottom: 12px;">我已经仔细阅读了您提供的所有信息，并且对您提出的内容非常感兴趣。基于您所述的情况，我认为我们有很好的合作空间。</div>
+<div style="margin-bottom: 12px;">我想提议安排一次详细的会议，以便我们能够更深入地讨论这个项目的各个方面。在会议中，我们可以探讨您的具体需求、预期目标、时间表以及其他相关细节。</div>
+<div style="margin-bottom: 12px;">请告诉我您方便的日期和时间，我会尽量调整我的日程来配合您。如果您有任何其他问题或需要更多信息，请随时告知我。</div>
+<div style="margin-bottom: 12px;">期待与您进一步合作。</div>
+<div style="margin-bottom: 12px;">此致敬礼,</div>`
     },
     'en': {
-      'professional': `${greeting ? "Dear " + greeting + ",\n\n" : ""}Thank you for your email. I have carefully reviewed your message and I'm very interested in what you've shared. I would like to suggest arranging a detailed discussion to better understand your needs and explore potential collaboration opportunities. Please let me know what times would be convenient for you, and I'll do my best to accommodate your schedule.\n\nI look forward to your reply.\n\nBest regards,`,
-      'friendly': `${greeting ? "Hi " + greeting + ",\n\n" : ""}Thanks so much for your email! I was really happy to hear from you. What you mentioned sounds really interesting, and I'd love to chat more about it. If you're free, maybe we could set up a time to talk in more detail, or we could hop on a call if that works better for you.\n\nLooking forward to hearing back from you soon!\n\nCheers,`,
-      'concise': `${greeting ? greeting + ",\n\n" : ""}Received your email and I'm interested in the matter you've raised. I suggest we arrange a meeting or call to discuss further. Please advise your availability.\n\nRegards,`,
-      'detailed': `${greeting ? "Dear " + greeting + ",\n\n" : ""}Thank you very much for your email. I have thoroughly reviewed all the information you provided and I'm very interested in what you've shared. Based on your message, I believe there is excellent potential for collaboration between us.\n\nI would like to propose scheduling a detailed meeting where we can dive deeper into all aspects of this project. During this meeting, we can explore your specific requirements, expected outcomes, timelines, and other relevant details.\n\nPlease let me know what dates and times would be convenient for you, and I will adjust my schedule accordingly. If you have any other questions or need additional information, please don't hesitate to ask.\n\nI look forward to our future collaboration.\n\nSincerely,`
+      'professional': `<div style="margin-bottom: 12px;">${senderName ? "Dear " + senderName + "," : ""}</div>
+<div style="margin-bottom: 12px;">Thank you for your email.</div>
+<div style="margin-bottom: 12px;">I have carefully reviewed your message and I'm very interested in what you've shared.</div>
+<div style="margin-bottom: 12px;">I would like to suggest arranging a detailed discussion to better understand your needs and explore potential collaboration opportunities.</div>
+<div style="margin-bottom: 12px;">Please let me know what times would be convenient for you, and I'll do my best to accommodate your schedule.</div>
+<div style="margin-bottom: 12px;">I look forward to your reply.</div>
+<div style="margin-bottom: 12px;">Best regards,</div>`,
+      'friendly': `<div style="margin-bottom: 12px;">${senderName ? "Hi " + senderName + "," : ""}</div>
+<div style="margin-bottom: 12px;">Thanks so much for your email!</div>
+<div style="margin-bottom: 12px;">I was really happy to hear from you. What you mentioned sounds really interesting, and I'd love to chat more about it.</div>
+<div style="margin-bottom: 12px;">If you're free, maybe we could set up a time to talk in more detail, or we could hop on a call if that works better for you.</div>
+<div style="margin-bottom: 12px;">Looking forward to hearing back from you soon!</div>
+<div style="margin-bottom: 12px;">Cheers,</div>`,
+      'concise': `<div style="margin-bottom: 12px;">${senderName ? senderName + "," : ""}</div>
+<div style="margin-bottom: 12px;">Received your email and I'm interested in the matter you've raised.</div>
+<div style="margin-bottom: 12px;">I suggest we arrange a meeting or call to discuss further.</div>
+<div style="margin-bottom: 12px;">Please advise your availability.</div>
+<div style="margin-bottom: 12px;">Regards,</div>`,
+      'detailed': `<div style="margin-bottom: 12px;">${senderName ? "Dear " + senderName + "," : ""}</div>
+<div style="margin-bottom: 12px;">Thank you very much for your email.</div>
+<div style="margin-bottom: 12px;">I have thoroughly reviewed all the information you provided and I'm very interested in what you've shared. Based on your message, I believe there is excellent potential for collaboration between us.</div>
+<div style="margin-bottom: 12px;">I would like to propose scheduling a detailed meeting where we can dive deeper into all aspects of this project. During this meeting, we can explore your specific requirements, expected outcomes, timelines, and other relevant details.</div>
+<div style="margin-bottom: 12px;">Please let me know what dates and times would be convenient for you, and I will adjust my schedule accordingly. If you have any other questions or need additional information, please don't hesitate to ask.</div>
+<div style="margin-bottom: 12px;">I look forward to our future collaboration.</div>
+<div style="margin-bottom: 12px;">Sincerely,</div>`
     },
     'ja': {
-      'professional': `${greeting ? greeting + "様\n\n" : ""}お世話になっております。メールをいただきありがとうございます。内容を拝見し、大変興味深く思いました。ご提案について詳しく理解し、潜在的な協力の可能性を探るため、詳細な議論の機会を設けさせていただきたいと思います。ご都合の良い日時をお知らせいただければ、可能な限り調整させていただきます。\n\nご返信をお待ちしております。\n\n敬具`,
-      'friendly': `${greeting ? greeting + "さん\n\n" : ""}メールありがとうございます！ご連絡いただき嬉しいです。ご提案いただいた内容にとても興味があります。もし良ければ、詳しくお話しする時間を設けることができますか？または、お電話でのご連絡の方が良ければ、そちらでも構いません。\n\nお返事楽しみにしています！\n\nよろしくお願いいたします。`,
-      'concise': `${greeting ? greeting + "様\n\n" : ""}メールを拝受いたしました。ご提案に興味があります。詳細を協議するため、会議またはお電話での打ち合わせをご提案いたします。ご都合の良い時間をお知らせください。\n\n敬具`,
-      'detailed': `${greeting ? greeting + "様\n\n" : ""}お世話になっております。メールをお送りいただき、誠にありがとうございます。ご提供いただいた情報をすべて慎重に検討いたしました。ご提案の内容に大変興味を持っており、私どもとの間で優れた協力の可能性があると確信しております。\n\nこのプロジェクトのすべての側面について詳しく話し合うことができる詳細な会議を設定することを提案させていただきます。この会議では、お客様の特定の要件、期待される成果、タイムライン、その他の関連詳細を探ることができます。\n\nご都合の良い日時をお知らせいただければ、それに応じて私のスケジュールを調整いたします。その他ご質問やさらに詳しい情報が必要な場合は、どうぞお気軽にお尋ねください。\n\n今後の協力を楽しみにしております。\n\n敬具`
+      'professional': `<div style="margin-bottom: 12px;">${senderName ? senderName + "様" : ""}</div>
+<div style="margin-bottom: 12px;">お世話になっております。</div>
+<div style="margin-bottom: 12px;">メールをいただきありがとうございます。</div>
+<div style="margin-bottom: 12px;">内容を拝見し、大変興味深く思いました。</div>
+<div style="margin-bottom: 12px;">ご提案について詳しく理解し、潜在的な協力の可能性を探るため、詳細な議論の機会を設けさせていただきたいと思います。</div>
+<div style="margin-bottom: 12px;">ご都合の良い日時をお知らせいただければ、可能な限り調整させていただきます。</div>
+<div style="margin-bottom: 12px;">ご返信をお待ちしております。</div>
+<div style="margin-bottom: 12px;">敬具</div>`,
+      'friendly': `<div style="margin-bottom: 12px;">${senderName ? senderName + "さん" : ""}</div>
+<div style="margin-bottom: 12px;">メールありがとうございます！</div>
+<div style="margin-bottom: 12px;">ご連絡いただき嬉しいです。</div>
+<div style="margin-bottom: 12px;">ご提案いただいた内容にとても興味があります。</div>
+<div style="margin-bottom: 12px;">もし良ければ、詳しくお話しする時間を設けることができますか？</div>
+<div style="margin-bottom: 12px;">または、お電話でのご連絡の方が良ければ、そちらでも構いません。</div>
+<div style="margin-bottom: 12px;">お返事楽しみにしています！</div>
+<div style="margin-bottom: 12px;">よろしくお願いいたします。</div>`,
+      'concise': `<div style="margin-bottom: 12px;">${senderName ? senderName + "様" : ""}</div>
+<div style="margin-bottom: 12px;">メールを拝受いたしました。</div>
+<div style="margin-bottom: 12px;">ご提案に興味があります。</div>
+<div style="margin-bottom: 12px;">詳細を協議するため、会議またはお電話での打ち合わせをご提案いたします。</div>
+<div style="margin-bottom: 12px;">ご都合の良い時間をお知らせください。</div>
+<div style="margin-bottom: 12px;">敬具</div>`,
+      'detailed': `<div style="margin-bottom: 12px;">${senderName ? senderName + "様" : ""}</div>
+<div style="margin-bottom: 12px;">お世話になっております。</div>
+<div style="margin-bottom: 12px;">メールをお送りいただき、誠にありがとうございます。</div>
+<div style="margin-bottom: 12px;">ご提供いただいた情報をすべて慎重に検討いたしました。</div>
+<div style="margin-bottom: 12px;">ご提案の内容に大変興味を持っており、私どもとの間で優れた協力の可能性があると確信しております。</div>
+<div style="margin-bottom: 12px;">このプロジェクトのすべての側面について詳しく話し合うことができる詳細な会議を設定することを提案させていただきます。</div>
+<div style="margin-bottom: 12px;">この会議では、お客様の特定の要件、期待される成果、タイムライン、その他の関連詳細を探ることができます。</div>
+<div style="margin-bottom: 12px;">ご都合の良い日時をお知らせいただければ、それに応じて私のスケジュールを調整いたします。</div>
+<div style="margin-bottom: 12px;">その他ご質問やさらに詳しい情報が必要な場合は、どうぞお気軽にお尋ねください。</div>
+<div style="margin-bottom: 12px;">今後の協力を楽しみにしております。</div>
+<div style="margin-bottom: 12px;">敬具</div>`
     }
   };
   
@@ -113,7 +211,7 @@ async function generateGeminiReply(emailContent, apiKey, tone, language, origina
     emailContent.substring(0, maxLength) + "..." : 
     emailContent;
   
-  // Enhanced prompt for Gemini with more detailed instructions
+  // Enhanced prompt for Gemini with instructions to use HTML formatting
   const prompt = `你是一位有经验的专业邮件助理，请为这封邮件生成一个${getToneInChinese(tone)}且有深度的回复。
 
 分析要点：
@@ -130,10 +228,17 @@ async function generateGeminiReply(emailContent, apiKey, tone, language, origina
 5. 如有必要，提出明确的后续步骤或问题
 6. 字数适中，正文至少100字以上，但不超过300字
 
+格式要求（非常重要）：
+1. 每个段落都应该使用以下HTML格式: <div style="margin-bottom: 12px;">段落内容</div>
+2. 问候语应单独在一个<div>标签中
+3. 每个自然段落都应该用单独的<div>标签包围
+4. 结束语和签名也应该单独成段
+5. 不要使用普通的换行符（\n），而是使用HTML标签确保正确格式化
+
 原始邮件内容:
 ${trimmedContent}
 
-请直接生成完整的回复内容，包括适当的称呼和结束语。如果邮件内容不明确，可以基于有限信息做出合理推测。`;
+请直接生成完整的回复内容，包括适当的称呼和结束语。如果邮件内容不明确，可以基于有限信息做出合理推测。确保回复使用HTML格式，以便在Gmail中正确显示段落和换行。`;
 
   console.log("Enhanced prompt prepared, sending to Gemini API");
   
