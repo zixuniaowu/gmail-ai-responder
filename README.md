@@ -1,6 +1,6 @@
 # Gmail AI Responder
 
-A Chrome extension that uses Google's Gemini AI to automatically generate email replies in Gmail.
+A Chrome extension that uses Google's Gemini AI to automatically generate replies in Gmail.
 
 ## Features
 
